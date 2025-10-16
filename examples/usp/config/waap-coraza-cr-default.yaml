@@ -1,0 +1,20 @@
+apiVersion: waap.u-s-p.ch/v1alpha1
+# The CRD is maintained and built as part of the envoy extension-server.
+# It is supposed to be installed along with the extension-server (e.g. helm chart)
+kind: WaapCoraza
+metadata:
+  name: waapuser
+spec:
+  targetRefs:
+    - kind: Gateway
+      name: gw
+      group: gateway.networking.k8s.io
+    # this made no difference:
+    #- kind: HTTPRoute
+    #  name: marketing-backend
+    #  group: gateway.networking.k8s.io
+    #- kind: HTTPRoute
+    #  name: sales-backend
+    #  group: gateway.networking.k8s.io
+  username: user
+  password: p@ssw0rd
