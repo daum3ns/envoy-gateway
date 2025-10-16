@@ -1,0 +1,58 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyGateway
+gateway:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+provider:
+  type: Custom
+  custom:
+    resource:
+      type: File
+      file:
+        paths: ["./examples/usp/config"]
+    infrastructure:
+      type: Host
+      host: {}
+logging:
+  level:
+    default: info
+admin:
+  address:
+    port: 19000
+    host: 0.0.0.0
+  enableDumpConfig: true
+extensionApis:
+  enableBackend: true
+extensionManager:
+  # Envoy Gateway will watch these resource kinds and use them as extension policies
+  # which can be attached to Gateway resources.
+  policyResources:
+    - group: waap.u-s-p.ch
+      version: v1alpha1
+      kind: WaapCoraza
+  hooks:
+    # The type of hooks that should be invoked.
+    # See https://gateway.envoyproxy.io/v0.4/design/extending-envoy-gateway/
+    # This configuration requires to implement the PostHTTPListenerModify xds hook.
+    xdsTranslator:
+      post:
+        - HTTPListener
+        - Route
+        - VirtualHost
+        - Cluster
+        - Translation
+        # Configure which resources to include in PostTranslateModifyHook
+        # Default: true for clusters and secrets (for backward compatibility)
+        # Default: false for listeners and routes (for backward compatibility)
+       # translation:
+       #   listener:
+       #     includeAll: true
+       #   route:
+       #     includeAll: true
+  service:
+    # The service that is hosting the extension server
+    fqdn:
+      hostname: 127.0.0.1
+      port: 5005
+runtimeFlags:
+  enabled:
+    - XDSNameSchemeV2
