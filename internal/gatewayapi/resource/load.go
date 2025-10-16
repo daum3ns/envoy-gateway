@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sort"
 
+	"fortio.org/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,6 +38,7 @@ const dummyClusterIP = "1.2.3.4"
 // LoadResourcesFromYAMLBytes will load Resources from given Kubernetes YAML string.
 // TODO: This function should be able to process arbitrary number of resources, tracked by https://github.com/envoyproxy/gateway/issues/3207.
 func LoadResourcesFromYAMLBytes(yamlBytes []byte, addMissingResources bool) (*Resources, error) {
+	log.Infof("<<<<<<<<<<<<<<<<<<   LoadResourcesFromYAMLBytes ENTER")
 	r, err := loadKubernetesYAMLToResources(yamlBytes, addMissingResources)
 	if err != nil {
 		return nil, err
@@ -54,6 +56,7 @@ func LoadResourcesFromYAMLBytes(yamlBytes []byte, addMissingResources bool) (*Re
 
 // loadKubernetesYAMLToResources converts a Kubernetes YAML string into GatewayAPI Resources.
 func loadKubernetesYAMLToResources(input []byte, addMissingResources bool) (*Resources, error) {
+	log.Infof("<<<<<<<<<<<<<<<<<<   loadKubernetesYAMLToResources ENTER)")
 	resources := NewResources()
 	var useDefaultNamespace bool
 	providedNamespaceMap := sets.New[string]()
@@ -98,12 +101,15 @@ func loadKubernetesYAMLToResources(input []byte, addMissingResources bool) (*Res
 		}
 
 		requiredNamespaceMap.Insert(namespace)
+		// error happens here!!
 		kobj, err := combinedScheme.New(gvk)
 		if err != nil {
+			log.Infof("<<<<<<<<<<<<<<<<<<   'combinedScheme.New' caused error %s (load.go; loadKubernetesYAMLToResources)", err.Error())
 			return err
 		}
 		err = combinedScheme.Convert(un, kobj, nil)
 		if err != nil {
+			log.Infof("<<<<<<<<<<<<<<<<<<   'combinedScheme.Convert' caused error %s (load.go; loadKubernetesYAMLToResources)", err.Error())
 			return err
 		}
 
@@ -116,6 +122,8 @@ func loadKubernetesYAMLToResources(input []byte, addMissingResources bool) (*Res
 		spec := kobjVal.FieldByName("Spec")
 		data := kobjVal.FieldByName("Data")
 		stringData := kobjVal.FieldByName("StringData")
+
+		log.Infof("<<<<<<<<<<<<<<<<<<   processing Kind %s (load.go; loadKubernetesYAMLToResources)", gvk.Kind)
 
 		switch gvk.Kind {
 		case KindEnvoyProxy:
