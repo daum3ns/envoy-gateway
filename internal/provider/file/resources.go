@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fortio.org/log"
 	"github.com/envoyproxy/gateway/internal/gatewayapi/resource"
 )
 
@@ -46,7 +45,6 @@ func loadFromFile(path string) (*resource.Resources, error) {
 		}
 		return nil, err
 	}
-	log.Infof("<<<<<<<<<<<<<<<<<<   loading file %s (resources.go; loadFromFile)", path)
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
