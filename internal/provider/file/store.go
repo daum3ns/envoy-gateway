@@ -128,7 +128,7 @@ func (r *resourcesStore) ReloadAll(ctx context.Context, files, dirs []string) er
 // - Service
 // - ServiceImport
 // - EndpointSlices
-// Becasues these resources has no effects on the host infra layer.
+// Because these resources have no effects on the host infra layer.
 func (r *resourcesStore) storeResources(ctx context.Context, re *resource.Resources) (sets.Set[storeKey], error) {
 	if re == nil {
 		return nil, nil
