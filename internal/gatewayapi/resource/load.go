@@ -426,6 +426,7 @@ func loadKubernetesYAMLToResources(input []byte, addMissingResources bool) (*Res
 			resources.ReferenceGrants = append(resources.ReferenceGrants, referenceGrant)
 		default:
 			//temporary hack: treat  every unrecognised Kind as an extension policy.
+			un.SetNamespace(namespace)
 			resources.ExtensionServerPolicies = append(resources.ExtensionServerPolicies, *un)
 		}
 
