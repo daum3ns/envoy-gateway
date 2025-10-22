@@ -61,6 +61,44 @@ func TestValidate(t *testing.T) {
 			},
 			expect: false,
 		},
+		{
+			name: "extension manager with custom extension",
+			cfg: &Server{
+				EnvoyGateway: &egv1a1.EnvoyGateway{
+					EnvoyGatewaySpec: egv1a1.EnvoyGatewaySpec{
+						Gateway:  egv1a1.DefaultGateway(),
+						Provider: egv1a1.DefaultEnvoyGatewayProvider(),
+						ExtensionManager: &egv1a1.ExtensionManager{
+							PolicyResources: []egv1a1.GroupVersionKind{
+								{
+									Group:   "gateway.example.io",
+									Version: "v1alpha1",
+									Kind:    "ExampleExtPolicy",
+								},
+							},
+							Hooks: &egv1a1.ExtensionHooks{
+								XDSTranslator: &egv1a1.XDSTranslatorHooks{
+									Post: []egv1a1.XDSTranslatorHook{
+										egv1a1.XDSTranslation,
+										egv1a1.XDSHTTPListener,
+									},
+								},
+							},
+							Service: &egv1a1.ExtensionService{
+								BackendEndpoint: egv1a1.BackendEndpoint{
+									FQDN: &egv1a1.FQDNEndpoint{
+										Hostname: "127.0.0.1",
+										Port:     5050,
+									},
+								},
+							},
+						},
+					},
+				},
+				ControllerNamespace: "test-ns",
+			},
+			expect: true,
+		},
 	}
 
 	for _, tc := range testCases {
