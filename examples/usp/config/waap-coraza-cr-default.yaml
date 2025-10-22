@@ -4,7 +4,6 @@ apiVersion: waap.u-s-p.ch/v1alpha1
 kind: WaapCoraza
 metadata:
   name: waapuser
-  namespace: envoy-gateway-system
 spec:
   targetRefs:
     - kind: Gateway
