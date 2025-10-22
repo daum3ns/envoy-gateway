@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -66,7 +67,7 @@ func TestRunner(t *testing.T) {
 }
 
 // setupTestRunner creates a test runner with populated stores and keyCache
-func setupTestRunner(t *testing.T) (*Runner, []types.NamespacedName) {
+func setupTestRunner(t *testing.T) (*Runner, []types.NamespacedName, []message.NamespacedNameAndGVK) {
 	pResources := new(message.ProviderResources)
 	xdsIR := new(message.XdsIR)
 	infraIR := new(message.InfraIR)
@@ -106,6 +107,31 @@ func setupTestRunner(t *testing.T) (*Runner, []types.NamespacedName) {
 		{Name: "envoyext1", Namespace: "test-namespace"},
 	}
 
+	extensions := []message.NamespacedNameAndGVK{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test-namespace",
+				Name:      "my-extension-1",
+			},
+			GroupVersionKind: schema.GroupVersionKind{
+				Group:   "gateway.example.io",
+				Version: "v1alpha1",
+				Kind:    "ExampleExtPolicy",
+			},
+		},
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test-namespace",
+				Name:      "my-extension-2",
+			},
+			GroupVersionKind: schema.GroupVersionKind{
+				Group:   "gateway.example.io",
+				Version: "v1alpha1",
+				Kind:    "ExampleExtPolicy2",
+			},
+		},
+	}
+
 	// Store various status types
 	r.ProviderResources.GatewayStatuses.Store(keys[0], &gwapiv1.GatewayStatus{})
 	r.ProviderResources.HTTPRouteStatuses.Store(keys[1], &gwapiv1.HTTPRouteStatus{})
@@ -120,11 +146,13 @@ func setupTestRunner(t *testing.T) (*Runner, []types.NamespacedName) {
 	r.ProviderResources.BackendTrafficPolicyStatuses.Store(keys[10], &gwapiv1a2.PolicyStatus{})
 	r.ProviderResources.SecurityPolicyStatuses.Store(keys[11], &gwapiv1a2.PolicyStatus{})
 	r.ProviderResources.EnvoyExtensionPolicyStatuses.Store(keys[12], &gwapiv1a2.PolicyStatus{})
+	r.ProviderResources.ExtensionPolicyStatuses.Store(extensions[0], &gwapiv1a2.PolicyStatus{})
+	r.ProviderResources.ExtensionPolicyStatuses.Store(extensions[1], &gwapiv1a2.PolicyStatus{})
 
 	// Populate keyCache to simulate normal operation where stores and keyCache are kept in sync
 	r.populateKeyCache()
 
-	return r, keys
+	return r, keys, extensions
 }
 
 // verifyInitialState checks that all stores and keyCache are properly populated
@@ -143,10 +171,11 @@ func verifyInitialState(t *testing.T, r *Runner) {
 	require.Equal(t, 1, r.ProviderResources.BackendTrafficPolicyStatuses.Len())
 	require.Equal(t, 1, r.ProviderResources.SecurityPolicyStatuses.Len())
 	require.Equal(t, 1, r.ProviderResources.EnvoyExtensionPolicyStatuses.Len())
+	require.Equal(t, 2, r.ProviderResources.ExtensionPolicyStatuses.Len())
 }
 
 func TestDeleteKeys(t *testing.T) {
-	r, keys := setupTestRunner(t)
+	r, keys, extensions := setupTestRunner(t)
 	verifyInitialState(t, r)
 
 	// Create KeyCache with subset of keys to delete (selective deletion)
@@ -158,6 +187,7 @@ func TestDeleteKeys(t *testing.T) {
 	keysToDelete.UDPRouteStatus[keys[5]] = true // Delete only one UDP route
 	keysToDelete.BackendTLSPolicyStatus[keys[8]] = true
 	keysToDelete.SecurityPolicyStatus[keys[11]] = true
+	keysToDelete.ExtensionServerPolicyStatus[extensions[0]] = true
 	// Leave some keys to verify selective deletion works
 
 	// Test selective deletion
@@ -178,6 +208,7 @@ func TestDeleteKeys(t *testing.T) {
 	require.Equal(t, 1, r.ProviderResources.BackendTrafficPolicyStatuses.Len()) // Should remain
 	require.Equal(t, 0, r.ProviderResources.SecurityPolicyStatuses.Len())
 	require.Equal(t, 1, r.ProviderResources.EnvoyExtensionPolicyStatuses.Len()) // Should remain
+	require.Equal(t, 1, r.ProviderResources.ExtensionPolicyStatuses.Len())      // One should remain
 
 	// Verify keyCache was updated correctly
 	require.False(t, r.keyCache.IR["test-ir-1"])
@@ -195,10 +226,12 @@ func TestDeleteKeys(t *testing.T) {
 	require.True(t, r.keyCache.BackendTrafficPolicyStatus[keys[10]]) // Should remain
 	require.False(t, r.keyCache.SecurityPolicyStatus[keys[11]])
 	require.True(t, r.keyCache.EnvoyExtensionPolicyStatus[keys[12]]) // Should remain
+	require.False(t, r.keyCache.ExtensionServerPolicyStatus[extensions[0]])
+	require.True(t, r.keyCache.ExtensionServerPolicyStatus[extensions[1]]) // Should remain
 }
 
 func TestDeleteAllKeys(t *testing.T) {
-	r, _ := setupTestRunner(t)
+	r, _, _ := setupTestRunner(t)
 	verifyInitialState(t, r)
 
 	// Test deleteAllKeys functionality
@@ -219,6 +252,7 @@ func TestDeleteAllKeys(t *testing.T) {
 	require.Equal(t, 0, r.ProviderResources.BackendTrafficPolicyStatuses.Len())
 	require.Equal(t, 0, r.ProviderResources.SecurityPolicyStatuses.Len())
 	require.Equal(t, 0, r.ProviderResources.EnvoyExtensionPolicyStatuses.Len())
+	require.Equal(t, 0, r.ProviderResources.ExtensionPolicyStatuses.Len())
 
 	// Verify keyCache is reset
 	require.Empty(t, r.keyCache.IR)
@@ -234,4 +268,6 @@ func TestDeleteAllKeys(t *testing.T) {
 	require.Empty(t, r.keyCache.BackendTrafficPolicyStatus)
 	require.Empty(t, r.keyCache.SecurityPolicyStatus)
 	require.Empty(t, r.keyCache.EnvoyExtensionPolicyStatus)
+	require.Empty(t, r.keyCache.ExtensionServerPolicyStatus)
+
 }
